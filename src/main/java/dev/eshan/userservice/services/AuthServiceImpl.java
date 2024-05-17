@@ -6,16 +6,17 @@ import dev.eshan.userservice.models.SessionStatus;
 import dev.eshan.userservice.models.User;
 import dev.eshan.userservice.repositories.SessionRepository;
 import dev.eshan.userservice.repositories.UserRepository;
+import io.jsonwebtoken.Jwts;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.util.MultiValueMapAdapter;
 
-import java.util.HashMap;
-import java.util.Optional;
+import javax.crypto.SecretKey;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -47,11 +48,33 @@ public class AuthServiceImpl implements AuthService {
             throw new Exception("Wrong Password");
         }
 
-        String token = RandomStringUtils.randomAlphabetic(30);
+//        String token = RandomStringUtils.randomAlphabetic(30);
+
+
+
+        // create a test key for this example:
+        SecretKey key = Jwts.SIG.HS256.key().build();
+
+//        String claimsString = new GsonBuilder().create().toJson(JWTPayLoad.builder().email("eshan@gmail.com").role(List.of("mantor", "ta")).build());
+//
+//        byte[] content = claimsString.getBytes(StandardCharsets.UTF_8);
+//
+//        String jws = Jwts.builder().content(content, "text/plain").signWith(key).compact();
+
+        Map<String, Object> jsonForJwt = new HashMap<>();
+        jsonForJwt.put("email", user.getEmail());
+        jsonForJwt.put("roles", user.getRoles());
+        jsonForJwt.put("createdAt", new Date());
+        jsonForJwt.put("expiryAt", new Date(LocalDate.now().plusDays(3).toEpochDay()));
+
+        String jws = Jwts.builder()
+                .claims(jsonForJwt)
+                .signWith(key)
+                .compact();
 
         Session session = new Session();
         session.setSessionStatus(SessionStatus.ACTIVE);
-        session.setToken(token);
+        session.setToken(jws);
         session.setUser(user);
         sessionRepository.save(session);
 
@@ -59,7 +82,7 @@ public class AuthServiceImpl implements AuthService {
 
 
         MultiValueMapAdapter<String, String> headers = new MultiValueMapAdapter<>(new HashMap<>());
-        headers.add(HttpHeaders.SET_COOKIE, "auth-token: " + token);
+        headers.add(HttpHeaders.SET_COOKIE, "auth-token: " + jws);
 
         ResponseEntity<UserDto> response = new ResponseEntity<>(userDto, headers, HttpStatus.OK);
 //        response.getHeaders().add(HttpHeaders.SET_COOKIE, token);
@@ -67,9 +90,28 @@ public class AuthServiceImpl implements AuthService {
         return response;
     }
 
+//    @Data
+//    @Builder
+//    static class JWTPayLoad {
+//        String email;
+//        List<String> role;
+//    }
+
     @Override
     public ResponseEntity<Void> logout(String token, Long userId) {
-        return null;
+        Optional<Session> sessionOptional = sessionRepository.findByTokenAndUser_Id(token, userId);
+
+        if (sessionOptional.isEmpty()) {
+            return null;
+        }
+
+        Session session = sessionOptional.get();
+
+        session.setSessionStatus(SessionStatus.ENDED);
+
+        sessionRepository.save(session);
+
+        return ResponseEntity.ok().build();
     }
 
     @Override
@@ -85,6 +127,17 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public SessionStatus validateToken(String token, Long userId) {
-        return null;
+        Optional<Session> sessionOptional = sessionRepository.findByTokenAndUser_Id(token, userId);
+        if (sessionOptional.isEmpty()) {
+            return SessionStatus.ENDED;
+//            return null;
+        }
+        Session session = sessionOptional.get();
+        if (!session.getSessionStatus().equals(SessionStatus.ACTIVE)) {
+            return SessionStatus.ENDED;
+        }
+
+
+        return SessionStatus.ACTIVE;
     }
 }
