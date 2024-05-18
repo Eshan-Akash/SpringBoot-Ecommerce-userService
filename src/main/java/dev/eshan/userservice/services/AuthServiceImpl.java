@@ -1,11 +1,11 @@
 package dev.eshan.userservice.services;
 
 import dev.eshan.userservice.dtos.*;
-import dev.eshan.userservice.models.Session;
-import dev.eshan.userservice.models.SessionStatus;
-import dev.eshan.userservice.models.User;
+import dev.eshan.userservice.models.*;
 import dev.eshan.userservice.repositories.SessionRepository;
 import dev.eshan.userservice.repositories.UserRepository;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.Jwts;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -137,7 +137,35 @@ public class AuthServiceImpl implements AuthService {
             return SessionStatus.ENDED;
         }
 
+        Jws<Claims> claimsJws = Jwts.parser().build().parseSignedClaims(token);
+        String email = claimsJws.getPayload().get("email", String.class);
+        List<String> roles = (List<String>) claimsJws.getPayload().get("roles");
+        Date createdAt = (Date) claimsJws.getPayload().get("createdAt");
+
+        if (createdAt.before(new Date())) {
+            return SessionStatus.ENDED;
+        }
 
         return SessionStatus.ACTIVE;
+    }
+
+    public JwtObject getJwtDetails(String token, Long userId) {
+        SessionStatus sessionStatus = validateToken(token, userId);
+        if (sessionStatus.equals(SessionStatus.ENDED)) {
+            return null;
+        }
+        Jws<Claims> claimsJws = Jwts.parser().build().parseSignedClaims(token);
+        String email = claimsJws.getPayload().get("email", String.class);
+        List<String> roles = (List<String>) claimsJws.getPayload().get("roles");
+        Date createdAt = (Date) claimsJws.getPayload().get("createdAt");
+        Date expiresAt = (Date) claimsJws.getPayload().get("expiresAt");
+        JwtObject jwtObject = new JwtObject();
+        jwtObject.setEmail(email);
+        jwtObject.setUserId(userId);
+        jwtObject.setRoles(roles.stream().map(Role::new).toList());
+        jwtObject.setCreatedAt(createdAt);
+        jwtObject.setExpiresAt(expiresAt);
+        jwtObject.setToken(token);
+        return jwtObject;
     }
 }

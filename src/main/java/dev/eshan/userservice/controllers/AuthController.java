@@ -1,6 +1,7 @@
 package dev.eshan.userservice.controllers;
 
 import dev.eshan.userservice.dtos.*;
+import dev.eshan.userservice.models.JwtObject;
 import dev.eshan.userservice.models.SessionStatus;
 import dev.eshan.userservice.services.AuthService;
 import org.springframework.http.HttpStatus;
@@ -45,5 +46,11 @@ public class AuthController {
     public ResponseEntity<SessionStatus> validateToken(@RequestBody ValidateTokenRequestDto request) {
         SessionStatus sessionStatus = authService.validateToken(request.getToken(), request.getUserId());
         return new ResponseEntity<>(sessionStatus, HttpStatus.OK);
+    }
+
+    @PostMapping("/jwtDetails")
+    public ResponseEntity<JwtObject> getUserDetails(@RequestBody ValidateTokenRequestDto request) {
+        JwtObject jwtObject = authService.getJwtDetails(request.getToken(), request.getUserId());
+        return new ResponseEntity<>(jwtObject, HttpStatus.OK);
     }
 }
