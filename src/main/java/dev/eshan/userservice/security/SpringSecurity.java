@@ -8,12 +8,12 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SpringSecurity {
-    @Bean
-    public SecurityFilterChain filteringCriteria(HttpSecurity http) throws Exception {
-        http.csrf().disable();
-        http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
-        return http.build();
-    }
+//    @Bean
+//    public SecurityFilterChain filteringCriteria(HttpSecurity http) throws Exception {
+//        http.csrf().disable();
+//        http.authorizeHttpRequests(authorize -> authorize.anyRequest().permitAll());
+//        return http.build();
+//    }
 
     @Bean
     public BCryptPasswordEncoder bCryptPasswordEncoder() {
