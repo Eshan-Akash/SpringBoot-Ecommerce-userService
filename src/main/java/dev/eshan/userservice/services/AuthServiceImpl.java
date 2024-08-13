@@ -1,5 +1,7 @@
 package dev.eshan.userservice.services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.eshan.userservice.configs.KafkaProducerClient;
 import dev.eshan.userservice.dtos.*;
 import dev.eshan.userservice.models.*;
 import dev.eshan.userservice.repositories.SessionRepository;
@@ -24,12 +26,16 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final SessionRepository sessionRepository;
+    private final KafkaProducerClient kafkaProducerClient;
+    private final ObjectMapper objectMapper;
 
     public AuthServiceImpl(UserRepository userRepository, BCryptPasswordEncoder bCryptPasswordEncoder,
-                           SessionRepository sessionRepository) {
+                           SessionRepository sessionRepository, KafkaProducerClient kafkaProducerClient, ObjectMapper objectMapper) {
         this.userRepository = userRepository;
         this.bCryptPasswordEncoder = bCryptPasswordEncoder;
         this.sessionRepository = sessionRepository;
+        this.kafkaProducerClient = kafkaProducerClient;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -121,8 +127,20 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(bCryptPasswordEncoder.encode(password));
 
         User savedUser = userRepository.save(user);
+        UserDto userDto = UserDto.from(savedUser);
 
-        return UserDto.from(savedUser);
+        try {
+//            kafkaProducerClient.sendMessage("userSignUp", objectMapper.writeValueAsString(userDto));
+            SendEmailMessageDto sendEmailMessageDto = new SendEmailMessageDto();
+            sendEmailMessageDto.setTo(userDto.getEmail());
+            sendEmailMessageDto.setFrom("eshan.akash@gmail.com");
+            sendEmailMessageDto.setSubject("Welcome to yoyo");
+            sendEmailMessageDto.setBody("sfafasfafa");
+            kafkaProducerClient.sendMessage("sendEmail", objectMapper.writeValueAsString(sendEmailMessageDto));
+        } catch (Exception e) {
+            System.out.println("Something went wrong");
+        }
+        return userDto;
     }
 
     @Override
